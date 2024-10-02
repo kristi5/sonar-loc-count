@@ -1,1 +1,12 @@
-
+test
+testFixtures
+gitlab
+integration
+one-metadata-frontend-e2e
+mdm-webapp-widgets-e2e
+mdm-admin-frontend-e2e
+flamingo-e2e
+dpm-admin-frontent-e2e
+flamingo-test-utils
+libs
+gitlab-ci
