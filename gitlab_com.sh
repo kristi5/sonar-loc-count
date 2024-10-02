@@ -29,14 +29,16 @@ fi
 connectionToken=$1
 groupname=$2
 
+
 if [[ "$2" =~ .*"/".* ]]; then 
        Namespace=0
     else 
        Namespace=1
 fi
-echo $Namespace $2
+
 #BaseAPI="https://gitlab.com/api/v4"
-BaseAPI="https://gitlab.ataccama.dev/api/v4"
+BaseAPI=$3
+
 #--------------------------------------------------------------------------------------#
 
 source ./set_common_variables.sh
@@ -74,6 +76,10 @@ do
    branchesAPI="$BaseAPI/projects/$ID/repository/branches?per_page=100&regex=$branchRegex"
    echo $branchesAPI
 
+    #url encoded reges for branch names ^main$|^master$|(^release-(14[.]5|15[.][0-9]?)[.]([0-9]?|x)$)
+   branchRegex="%5Emain%24%7C%5Emaster%24%7C%28%5Erelease-%2814%5B.%5D5%7C15%5B.%5D%5B0-9%5D%3F%29%5B.%5D%28%5B0-9%5D%3F%7Cx%29%24%29"
+   branchesAPI="$BaseAPI/projects/$ID/repository/branches?per_page=100&regex=$branchRegex"
+
    curl  --header "PRIVATE-TOKEN: $connectionToken" $branchesAPI | jq -r '.[].name' | while read -r BrancheName ;
     do
         # Replace / or space by - in Branche Name for created local file
@@ -92,7 +98,7 @@ do
 
         # Run Analyse : run cloc on the local repository
         if [ -s $EXCLUDE ]; then
-          cloc $NameFile --force-lang-def=sonar-lang-defs.txt --report-file=${LISTF} --exclude-lang=$excludedLangs  --exclude-dir=$(tr '\n' ',' < .clocignore) --timeout 0 --sum-one
+          cloc $NameFile --force-lang-def=sonar-lang-defs.txt --report-file=${LISTF} --exclude-lang=$excludedLangs --exclude-dir=$(tr '\n' ',' < .clocignore) --timeout 0 --sum-one
         else
            cloc $NameFile --force-lang-def=sonar-lang-defs.txt --report-file=${LISTF} --timeout 0 --sum-one
         fi   
