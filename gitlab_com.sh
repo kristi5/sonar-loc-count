@@ -54,7 +54,7 @@ if [ $Namespace -eq 1 ]; then
 
     else  
           groupname1=` echo $groupname|$SED s/'\/'/'%2f'/g`
-          GetAPI="/groups/$groupname1/projects?include_subgroups=true&archived=false"
+          GetAPI="/groups/$groupname1/projects?per_page=100&include_subgroups=true&archived=false&visibility=internal&order_by=last_activity_at&sort=desc"
           jq_args=".[] | \"\(.name):\(.id):\(.http_url_to_repo)\""
 fi
 
@@ -88,9 +88,11 @@ do
         # Create Commad Git clone 
         git clone https://oauth2:${connectionToken}@$CLONE --depth 1 --branch $BrancheName $NameFile
 
+        excludedLangs="XML,HTML,YAML,SQL,CSS,SCSS,Go"
+
         # Run Analyse : run cloc on the local repository
         if [ -s $EXCLUDE ]; then
-          cloc $NameFile --force-lang-def=sonar-lang-defs.txt --report-file=${LISTF} --exclude-dir=$(tr '\n' ',' < .clocignore) --timeout 0 --sum-one
+          cloc $NameFile --force-lang-def=sonar-lang-defs.txt --report-file=${LISTF} --exclude-lang=$excludedLangs --exclude-dir=$(tr '\n' ',' < .clocignore) --timeout 0 --sum-one
         else
            cloc $NameFile --force-lang-def=sonar-lang-defs.txt --report-file=${LISTF} --timeout 0 --sum-one
         fi   
