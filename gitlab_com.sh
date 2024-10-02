@@ -29,13 +29,15 @@ fi
 connectionToken=$1
 groupname=$2
 
+
 if [[ "$2" =~ .*"/".* ]]; then 
-       Namespace=1
-    else 
        Namespace=0
+    else 
+       Namespace=1
 fi
 
-BaseAPI="https://gitlab.com/api/v4"
+#BaseAPI="https://gitlab.com/api/v4"
+BaseAPI=$3
 #--------------------------------------------------------------------------------------#
 
 source ./set_common_variables.sh
@@ -50,7 +52,9 @@ if [ $Namespace -eq 1 ]; then
         GetAPI="/projects/$groupname1"
         jq_args="\"\(.name):\(.id):\(.http_url_to_repo)\""
 
-    else  GetAPI="/groups/$groupname/projects?include_subgroups=true"
+    else  
+          groupname1=` echo $groupname|$SED s/'\/'/'%2f'/g`
+          GetAPI="/groups/$groupname/projects?include_subgroups=true&archived=false"
           jq_args=".[] | \"\(.name):\(.id):\(.http_url_to_repo)\""
 fi
 
@@ -66,7 +70,11 @@ do
    # Replace space by - in Repository name for created local file
    NameFile=` echo $Name|$SED s/' '/'-'/g`
 
-   curl  --header "PRIVATE-TOKEN: $connectionToken" $BaseAPI/projects/$ID/repository/branches | jq -r '.[].name' | while read -r BrancheName ;
+    #url encoded reges for branch names ^main$|^master$|(^release-(14[.]5|15[.][0-9]?)[.]([0-9]?|x)$)
+   branchRegex="%5Emain%24%7C%5Emaster%24%7C%28%5Erelease-%2814%5B.%5D5%7C15%5B.%5D%5B0-9%5D%3F%29%5B.%5D%28%5B0-9%5D%3F%7Cx%29%24%29"
+   branchesAPI="$BaseAPI/projects/$ID/repository/branches?per_page=100&regex=$branchRegex"
+
+   curl  --header "PRIVATE-TOKEN: $connectionToken" $branchesAPI | jq -r '.[].name' | while read -r BrancheName ;
     do
         # Replace / or space by - in Branche Name for created local file
         BrancheNameF=` echo $BrancheName|$SED s/'\/'/'-'/g|$SED s/' '/'-'/g`
