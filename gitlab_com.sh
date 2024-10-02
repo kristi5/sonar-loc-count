@@ -30,15 +30,17 @@ connectionToken=$1
 groupname=$2
 
 if [[ "$2" =~ .*"/".* ]]; then 
-       Namespace=1
-    else 
        Namespace=0
+    else 
+       Namespace=1
 fi
-
-BaseAPI="https://gitlab.com/api/v4"
+echo $Namespace $2
+#BaseAPI="https://gitlab.com/api/v4"
+BaseAPI="https://gitlab.ataccama.dev/api/v4"
 #--------------------------------------------------------------------------------------#
 
 source ./set_common_variables.sh
+
 
 # Test if request for for 1 Project or more Project in GroupName
      # If you have more than 100 repos Change Value of parameter page=Number_of_page
@@ -50,23 +52,29 @@ if [ $Namespace -eq 1 ]; then
         GetAPI="/projects/$groupname1"
         jq_args="\"\(.name):\(.id):\(.http_url_to_repo)\""
 
-    else  GetAPI="/groups/$groupname/projects?include_subgroups=true"
-          jq_args=".[] | \"\(.name):\(.id):\(.http_url_to_repo)\""
+    else  
+	  groupname1=` echo $groupname|$SED s/'\/'/'%2f'/g`
+	  GetAPI="/groups/$groupname1/projects?per_page=100&page=1&include_subgroups=true&archived=false&visibility=internal&order_by=last_activity_at&sort=desc&simple=true"
+          jq_args=".[] | \"\(.name):\(.id):\(.path_with_namespace):\(.http_url_to_repo)\""
 fi
 
+echo $GetAPI
 
 # Get List of Repositories : get Name , ID and http_url_to_repo
-curl --header "PRIVATE-TOKEN: $connectionToken" $BaseAPI$GetAPI|jq -r ''"${jq_args}"''| while IFS=: read -r Name ID Repourl;
+curl --header "PRIVATE-TOKEN: $connectionToken" $BaseAPI$GetAPI|jq -r ''"${jq_args}"''| while IFS=: read -r Name ID Pathwithnamespace Repourl;
 
 do
   echo "-----------------------------------------------------------------"
-  echo -e "Repository Number :$i  Name : $Name id : $ID"
+  echo -e "Repository Number :$i  Name : $Name id : $ID path: $Pathwithnamespace"
 # Get List of Branches
    
    # Replace space by - in Repository name for created local file
    NameFile=` echo $Name|$SED s/' '/'-'/g`
+   branchRegex="%5Emain%24%7C%5Emaster%24"
+   branchesAPI="$BaseAPI/projects/$ID/repository/branches?per_page=100&regex=$branchRegex"
+   echo $branchesAPI
 
-   curl  --header "PRIVATE-TOKEN: $connectionToken" $BaseAPI/projects/$ID/repository/branches | jq -r '.[].name' | while read -r BrancheName ;
+   curl  --header "PRIVATE-TOKEN: $connectionToken" $branchesAPI | jq -r '.[].name' | while read -r BrancheName ;
     do
         # Replace / or space by - in Branche Name for created local file
         BrancheNameF=` echo $BrancheName|$SED s/'\/'/'-'/g|$SED s/' '/'-'/g`
@@ -80,9 +88,11 @@ do
         # Create Commad Git clone 
         git clone https://oauth2:${connectionToken}@$CLONE --depth 1 --branch $BrancheName $NameFile
 
+        excludedLangs="XML,HTML,YAML,SQL,CSS,SCSS,Go"
+
         # Run Analyse : run cloc on the local repository
         if [ -s $EXCLUDE ]; then
-          cloc $NameFile --force-lang-def=sonar-lang-defs.txt --report-file=${LISTF} --exclude-dir=$(tr '\n' ',' < .clocignore) --timeout 0 --sum-one
+          cloc $NameFile --force-lang-def=sonar-lang-defs.txt --report-file=${LISTF} --exclude-lang=$excludedLangs  --exclude-dir=$(tr '\n' ',' < .clocignore) --timeout 0 --sum-one
         else
            cloc $NameFile --force-lang-def=sonar-lang-defs.txt --report-file=${LISTF} --timeout 0 --sum-one
         fi   
@@ -127,6 +137,7 @@ do
 
     # set Nbr Loc by Project in File cpt.txt
     echo "${INDEX01}" >> $NBCLOC
+    echo "${INDEX01},${NameFile},${Pathwithnamespace}" >> $NBCLOCNAME
     
     LISTF=""
     NBTAB1=()
@@ -141,7 +152,7 @@ do
    cpt=$(expr $cpt + $line)
 done < $NBCLOC
 
-/bin/rm $NBCLOC
+#/bin/rm $NBCLOC
 
 echo -e "\n-------------------------------------------------------------------------------------------"
 printf "The maximum lines of code on the repository is : < %' .f > result in <Report_global.txt>\n" "${cpt}"
