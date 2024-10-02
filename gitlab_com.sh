@@ -54,7 +54,7 @@ if [ $Namespace -eq 1 ]; then
 
     else  
           groupname1=` echo $groupname|$SED s/'\/'/'%2f'/g`
-          GetAPI="/groups/$groupname/projects?include_subgroups=true&archived=false"
+          GetAPI="/groups/$groupname1/projects?include_subgroups=true&archived=false"
           jq_args=".[] | \"\(.name):\(.id):\(.http_url_to_repo)\""
 fi
 
